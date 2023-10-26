@@ -1,13 +1,15 @@
 # Hash Embed
 
-![Build and Test](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml/badge.svg)
+![Build and Test](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml/badge.svg) [![GitHub tag](https://img.shields.io/github/tag/42z-io/hashembed?include_prereleases=&sort=semver&color=blue)](https://github.com/42z-io/hashembed/releases/)
+[![License](https://img.shields.io/badge/License-MIT-blue)](#license) ![Static Badge](https://img.shields.io/badge/API-docs?label=docs&color=blue&link=https%3A%2F%2Fpkg.go.dev%2Fgithub.com%2F42z-io%2Fhashembed)
+
 
 `hashembed` is a thin wrapper around [embed.FS](https://pkg.go.dev/embed) to allow accessing files with a content hash.
 
 `hashembed` is useful if you are embedding static assets directly into your application and want to
 facilitate serving these files with very long duration client-side caching.
 
-***Note**: You should use middleware instead of `hashembed`. While `hashembed` is functional it was built as an exercise in learning Go.*
+***Note**: It probably makes more sense to use some custom middleware to achieve the same affect as `hashembed`.*
 
 # Usage
 
