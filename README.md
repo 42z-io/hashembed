@@ -1,5 +1,7 @@
 # Hash Embed
 
+![Build and Test](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml/badge.svg)
+
 `hashembed` is a thin wrapper around [embed.FS](https://pkg.go.dev/embed) to allow accessing files with a content hash.
 
 `hashembed` is useful if you are embedding static assets directly into your application and want to
