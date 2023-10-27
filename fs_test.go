@@ -10,8 +10,8 @@ import (
 //go:embed testdata/*
 var testEmbed embed.FS
 
-var testHashEmbed *FS
-var testHashEmbedOptions *FS
+var testHashEmbed *HashedFS
+var testHashEmbedOptions *HashedFS
 
 func init() {
 	testHashEmbed, _ = Generate(testEmbed)

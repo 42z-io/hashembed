@@ -1,11 +1,11 @@
-// [hashembed] is a thin wrapper around [embed] to allow accessing files with a content hash.
+// [hashembed] is an [embed.FS] with support for reading files with virtual content hashes embedded in the file name.
 //
 // [hashembed] is useful if you are embedding static assets directly into your application and want to
 // facilitate serving these files with very long duration client-side caching.
 //
 // # File Hashing
 //
-// Files are hashed when you call [FS.Generate].
+// Files are hashed when you call [Generate].
 //
 // You can provide a custom file hasher by providing a function that matches [FileHasher].
 //
@@ -15,7 +15,7 @@
 //
 // # File Renaming
 //
-// Files are renamed to include their hash when you call [FS.Generate].
+// Files are renamed to include their hash when you call [Generate].
 //
 // You can provide a custom file renamer by providing a function that matches [FileRenamer].
 //
@@ -34,8 +34,8 @@ import (
 	"slices"
 )
 
-// FS is the "emulated" embed.FS interface with support for content hashes
-type FS struct {
+// HashedFS is an [embed.FS] with support for reading files with virtual content hashes embedded in the file name.
+type HashedFS struct {
 	fs               embed.FS          // underlying embed.FS
 	actualPathLookup map[string]string // lookups for the hashed path => actual path
 	hashedPathLookup map[string]string // lookups for the actual path => hashed path
@@ -43,7 +43,7 @@ type FS struct {
 }
 
 // Initialize a file by generating a hash, renaming (aliasing), and adding it to the lookup.
-func (f FS) initializeFile(file PathedDirEntry) error {
+func (f HashedFS) initializeFile(file PathedDirEntry) error {
 	_, ext := file.NameAndExtension()
 	if !slices.Contains(f.cfg.AllowedExtensions, ext) {
 		return nil
@@ -71,7 +71,7 @@ func (f FS) initializeFile(file PathedDirEntry) error {
 }
 
 // Initialize a path (could be file or directory) within the embed.FS.
-func (f FS) initializePath(root PathedDirEntry) error {
+func (f HashedFS) initializePath(root PathedDirEntry) error {
 	rootPath := root.FullPath()
 	entries, err := f.fs.ReadDir(rootPath)
 	if err != nil {
@@ -93,8 +93,8 @@ func (f FS) initializePath(root PathedDirEntry) error {
 	return nil
 }
 
-// Initialize the FS by iterating over the files in the embed.FS.
-func (f FS) initialize() error {
+// Initialize the [HashedFS] by iterating over the files in the embed.FS.
+func (f HashedFS) initialize() error {
 	entries, err := f.fs.ReadDir(".")
 	if err != nil {
 		return err
@@ -109,8 +109,8 @@ func (f FS) initialize() error {
 	return nil
 }
 
-// Generate will create a new instance of [FS] using [Config] (if provided) or [ConfigDefault] if not provided.
-func Generate(fs embed.FS, cfgs ...Config) (*FS, error) {
+// Generate will create a new instance of [HashedFS] using [Config] (if provided) or [ConfigDefault] if not provided.
+func Generate(fs embed.FS, cfgs ...Config) (*HashedFS, error) {
 	cfg := ConfigDefault
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
@@ -128,7 +128,7 @@ func Generate(fs embed.FS, cfgs ...Config) (*FS, error) {
 		}
 	}
 
-	hashedEmbed := &FS{
+	hashedEmbed := &HashedFS{
 		fs:               fs,
 		actualPathLookup: make(map[string]string),
 		hashedPathLookup: make(map[string]string),
@@ -140,7 +140,9 @@ func Generate(fs embed.FS, cfgs ...Config) (*FS, error) {
 }
 
 // GetActualPath will convert the content hashed path into the actual path.
-func (f FS) GetActualPath(path string) string {
+//
+// If the actual path is not found it will return the provided path.
+func (f HashedFS) GetActualPath(path string) string {
 	if lookup, ok := f.actualPathLookup[path]; ok {
 		return lookup
 	}
@@ -148,30 +150,32 @@ func (f FS) GetActualPath(path string) string {
 }
 
 // GetHashedPath will convert the actual path into the content hashed path.
-func (f FS) GetHashedPath(path string) string {
+//
+// If the hashed path is not found it will return the provided path.
+func (f HashedFS) GetHashedPath(path string) string {
 	if lookup, ok := f.hashedPathLookup[path]; ok {
 		return lookup
 	}
 	return path
 }
 
-// Wrapper for embed.FS.Open.
+// See [embed.FS.Open]
 //
 // This will call [GetActualPath] on the file to get the correct name.
-func (f FS) Open(name string) (fs.File, error) {
+func (f HashedFS) Open(name string) (fs.File, error) {
 	return f.fs.Open(f.GetActualPath(name))
 }
 
-// Wrapper for embed.FS.ReadDir.
+// See [embed.FS.ReadDir]
 //
-// This will NOT [GetActualPath] the name - ReadDir is not currently supported by [hashembed].
-func (f FS) ReadDir(name string) ([]fs.DirEntry, error) {
+// Note: This will only return files that actually exist in the [embed.FS] - hashed files are "virtual"
+func (f HashedFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return f.fs.ReadDir(name)
 }
 
-// Wrapper for embed.FS.ReadFile.
+// See [embed.FS]
 //
-// This will call [GetActualPath] on the file to get the correct name.
-func (f FS) ReadFile(name string) ([]byte, error) {
+// This will call [HashedFS.GetActualPath] on the file to get the correct name.
+func (f HashedFS) ReadFile(name string) ([]byte, error) {
 	return f.fs.ReadFile(f.GetActualPath(name))
 }

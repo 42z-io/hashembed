@@ -1,17 +1,15 @@
 # Hash Embed
 
-[![Build and Test](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml/badge.svg)](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml) [![GitHub tag](https://img.shields.io/github/tag/42z-io/hashembed?include_prereleases=&sort=semver&color=blue)](https://github.com/42z-io/hashembed/releases/)
+[![Build and Test](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml/badge.svg)](https://github.com/42z-io/hashembed/actions/workflows/build_test.yml) [![GitHub Tag](https://img.shields.io/github/tag/42z-io/hashembed?include_prereleases=&sort=semver&color=blue)](https://github.com/42z-io/hashembed/releases/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/42z-io/hashembed/blob/main/LICENSE.md) [![Docs](https://img.shields.io/badge/API-docs?label=docs&color=blue&link=https%3A%2F%2Fpkg.go.dev%2Fgithub.com%2F42z-io%2Fhashembed)](https://pkg.go.dev/github.com/42z-io/hashembed)
 
 ![Logo](logo.png)
 
 
-`hashembed` is a thin wrapper around [embed.FS](https://pkg.go.dev/embed) to allow accessing files with a content hash.
+`hashembed` is an [embed.FS](https://pkg.go.dev/embed) with support for reading files with virtual content hashes embedded in the file name.
 
 `hashembed` is useful if you are embedding static assets directly into your application and want to
 facilitate serving these files with very long duration client-side caching.
-
-***Note**: It probably makes more sense to use some custom middleware to achieve the same affect as `hashembed`.*
 
 ## Usage
 

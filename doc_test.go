@@ -8,7 +8,7 @@ import (
 //go:embed testdata/*
 var embedded embed.FS
 
-var hashedEmbeded *FS
+var hashedEmbeded *HashedFS
 
 func init() {
 	hashedEmbeded, _ = Generate(embedded)
@@ -43,14 +43,14 @@ func Example_configured() {
 	// body { width: 100%; }
 }
 
-func ExampleFS_GetActualPath() {
+func ExampleHashedFS_GetActualPath() {
 	fmt.Println(
 		hashedEmbeded.GetActualPath("testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css"),
 	)
 	// Output: testdata/test.css
 }
 
-func ExampleFS_GetHashedPath() {
+func ExampleHashedFS_GetHashedPath() {
 	fmt.Println(
 		hashedEmbeded.GetHashedPath("testdata/test.css"),
 	)
