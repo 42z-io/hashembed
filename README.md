@@ -28,7 +28,7 @@ var embedded embed.FS
 
 func main() {
   embedded, _ := Generate(embedded)
-  path := embedded.Reverse("testdata/test.css")
+  path := embedded.GetHashedPath("testdata/test.css")
   fmt.Printf(path)
   // Output: testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css
   data, _ := embedded.ReadFile(path)
@@ -48,7 +48,7 @@ var hashedData := hashembed.Generate(data)
 
 // Template
 templ {
-    <script src={ "/static/" + hashedData.Reverse("dist/my_file.css") }>
+    <script src={ "/static/" + hashedData.GetHashedPath("dist/my_file.css") }>
 }
 // <script src="/static/dist/my_file.HASH_CODE_HERE.css">
 

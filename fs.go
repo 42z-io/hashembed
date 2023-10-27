@@ -36,10 +36,10 @@ import (
 
 // FS is the "emulated" embed.FS interface with support for content hashes
 type FS struct {
-	fs            embed.FS          // underlying embed.FS
-	forwardLookup map[string]string // lookups for the content hashed path => actual path
-	reverseLookup map[string]string // lookups for the actual path => content hashed path
-	cfg           Config            // configuration options for the hashed embed
+	fs               embed.FS          // underlying embed.FS
+	actualPathLookup map[string]string // lookups for the hashed path => actual path
+	hashedPathLookup map[string]string // lookups for the actual path => hashed path
+	cfg              Config            // configuration options for the hashed embed
 }
 
 // Initialize a file by generating a hash, renaming (aliasing), and adding it to the lookup.
@@ -59,14 +59,14 @@ func (f FS) initializeFile(file PathedDirEntry) error {
 		return err
 	}
 
-	renamedPath := f.cfg.Renamer(file, hash)
+	hashedPath := f.cfg.Renamer(file, hash)
 	if err != nil {
 		return err
 	}
 
 	fullPath := file.FullPath()
-	f.forwardLookup[renamedPath] = fullPath
-	f.reverseLookup[fullPath] = renamedPath
+	f.actualPathLookup[hashedPath] = fullPath
+	f.hashedPathLookup[fullPath] = hashedPath
 	return nil
 }
 
@@ -129,27 +129,27 @@ func Generate(fs embed.FS, cfgs ...Config) (*FS, error) {
 	}
 
 	hashedEmbed := &FS{
-		fs:            fs,
-		forwardLookup: make(map[string]string),
-		reverseLookup: make(map[string]string),
-		cfg:           cfg,
+		fs:               fs,
+		actualPathLookup: make(map[string]string),
+		hashedPathLookup: make(map[string]string),
+		cfg:              cfg,
 	}
 
 	hashedEmbed.initialize()
 	return hashedEmbed, nil
 }
 
-// Forward will convert the content hashed path into the actual path.
-func (f FS) Forward(path string) string {
-	if lookup, ok := f.forwardLookup[path]; ok {
+// GetActualPath will convert the content hashed path into the actual path.
+func (f FS) GetActualPath(path string) string {
+	if lookup, ok := f.actualPathLookup[path]; ok {
 		return lookup
 	}
 	return path
 }
 
-// Reverse will convert the actual path into the content hashed path.
-func (f FS) Reverse(path string) string {
-	if lookup, ok := f.reverseLookup[path]; ok {
+// GetHashedPath will convert the actual path into the content hashed path.
+func (f FS) GetHashedPath(path string) string {
+	if lookup, ok := f.hashedPathLookup[path]; ok {
 		return lookup
 	}
 	return path
@@ -157,21 +157,21 @@ func (f FS) Reverse(path string) string {
 
 // Wrapper for embed.FS.Open.
 //
-// This will call [Forward] on the file to get the correct name.
+// This will call [GetActualPath] on the file to get the correct name.
 func (f FS) Open(name string) (fs.File, error) {
-	return f.fs.Open(f.Forward(name))
+	return f.fs.Open(f.GetActualPath(name))
 }
 
 // Wrapper for embed.FS.ReadDir.
 //
-// This will NOT [Forward] the name - ReadDir is not currently supported by [hashembed].
+// This will NOT [GetActualPath] the name - ReadDir is not currently supported by [hashembed].
 func (f FS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return f.fs.ReadDir(name)
 }
 
 // Wrapper for embed.FS.ReadFile.
 //
-// This will call [Forward] on the file to get the correct name.
+// This will call [GetActualPath] on the file to get the correct name.
 func (f FS) ReadFile(name string) ([]byte, error) {
-	return f.fs.ReadFile(f.Forward(name))
+	return f.fs.ReadFile(f.GetActualPath(name))
 }

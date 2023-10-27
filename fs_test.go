@@ -21,33 +21,33 @@ func init() {
 	})
 }
 
-func TestReverse(t *testing.T) {
+func TestGetHashedPath(t *testing.T) {
 	assert.Equal(
 		t,
 		"testdata/7f2cded6.css",
-		testHashEmbedOptions.Reverse("testdata/test.css"),
-		"reverse path should be calculated correctly",
+		testHashEmbedOptions.GetHashedPath("testdata/test.css"),
+		"GetHashedPath path should be calculated correctly",
 	)
 	assert.Equal(
 		t,
 		"testdata/test.txt",
-		testHashEmbedOptions.Reverse("testdata/test.txt"),
-		"reverse path should remain unchanged when file not hashed",
+		testHashEmbedOptions.GetHashedPath("testdata/test.txt"),
+		"GetHashedPath path should remain unchanged when file not hashed",
 	)
 }
 
-func TestForward(t *testing.T) {
+func TestGetActualPath(t *testing.T) {
 	assert.Equal(
 		t,
 		"testdata/test.css",
-		testHashEmbedOptions.Forward("testdata/7f2cded6.css"),
-		"forward path should be calculated correctly",
+		testHashEmbedOptions.GetActualPath("testdata/7f2cded6.css"),
+		"GetActualPath path should be calculated correctly",
 	)
 	assert.Equal(
 		t,
 		"testdata/test.txt",
-		testHashEmbedOptions.Forward("testdata/test.txt"),
-		"forward path should remain unchanged when file not hashed",
+		testHashEmbedOptions.GetActualPath("testdata/test.txt"),
+		"GetActualPath path should remain unchanged when file not hashed",
 	)
 }
 

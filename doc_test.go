@@ -18,7 +18,7 @@ func Example() {
 	// use go:embed
 	// var embeded embed.FS
 	embedded, _ := Generate(embedded)
-	path := embedded.Reverse("testdata/test.css")
+	path := embedded.GetHashedPath("testdata/test.css")
 	data, _ := embedded.ReadFile(path)
 	fmt.Printf("%s\n%s\n", path, string(data[:]))
 	// Output: testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css
@@ -36,23 +36,23 @@ func Example_configured() {
 		// Mechanism to control the naming of the content-hashed files
 		Renamer: FullNameRenamer,
 	})
-	path := embedded.Reverse("testdata/test.css")
+	path := embedded.GetHashedPath("testdata/test.css")
 	data, _ := embedded.ReadFile(path)
 	fmt.Printf("%s\n%s\n", path, string(data[:]))
 	// Output: testdata/7f2cded6.css
 	// body { width: 100%; }
 }
 
-func ExampleFS_Forward() {
+func ExampleFS_GetActualPath() {
 	fmt.Println(
-		hashedEmbeded.Forward("testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css"),
+		hashedEmbeded.GetActualPath("testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css"),
 	)
 	// Output: testdata/test.css
 }
 
-func ExampleFS_Reverse() {
+func ExampleFS_GetHashedPath() {
 	fmt.Println(
-		hashedEmbeded.Reverse("testdata/test.css"),
+		hashedEmbeded.GetHashedPath("testdata/test.css"),
 	)
 	// Output: testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css
 }
