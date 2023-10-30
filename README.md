@@ -25,7 +25,7 @@ import (
 var embedded embed.FS
 
 func main() {
-  embedded, _ := Generate(embedded)
+  embedded, _ := hashembed.Generate(embedded)
   path := embedded.GetHashedPath("testdata/test.css")
   fmt.Printf(path)
   // Output: testdata/test.8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48.css
