@@ -9,7 +9,7 @@ type Config struct {
 
 // Default configuration for [HashedFS].
 var ConfigDefault = Config{
-	Hasher:            Sha256Hasher{},
+	Hasher:            Sha256Hasher,
 	Renamer:           ExtensionRenamer,
 	AllowedExtensions: []string{"js", "json", "png", "bmp", "jpeg", "jpg", "css", "ico"},
 }
