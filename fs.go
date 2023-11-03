@@ -39,6 +39,8 @@ type HashedFS struct {
 	fs               embed.FS          // underlying embed.FS
 	actualPathLookup map[string]string // lookups for the hashed path => actual path
 	hashedPathLookup map[string]string // lookups for the actual path => hashed path
+	integrityLookup  map[string]string // lookups for the actual path => integrity hash (sha-256)
+	integrityHasher  FileHasher        // hasher used to generate the integrity hash
 	cfg              Config            // configuration options for the hashed embed
 }
 
@@ -54,9 +56,20 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 		return err
 	}
 
-	hash, err := f.cfg.Hasher(data)
+	hash, err := f.cfg.Hasher.Hash(data)
 	if err != nil {
 		return err
+	}
+
+	var sha256 string
+	if f.cfg.Hasher.Algorithm() == "sha256" {
+		sha256 = hash
+	} else {
+		integrityHash, err := f.integrityHasher.Hash(data)
+		if err != nil {
+			return err
+		}
+		sha256 = integrityHash
 	}
 
 	hashedPath := f.cfg.Renamer(file, hash)
@@ -67,6 +80,7 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 	fullPath := file.FullPath()
 	f.actualPathLookup[hashedPath] = fullPath
 	f.hashedPathLookup[fullPath] = hashedPath
+	f.integrityLookup[fullPath] = sha256
 	return nil
 }
 
@@ -132,6 +146,8 @@ func Generate(fs embed.FS, cfgs ...Config) (*HashedFS, error) {
 		fs:               fs,
 		actualPathLookup: make(map[string]string),
 		hashedPathLookup: make(map[string]string),
+		integrityLookup:  make(map[string]string),
+		integrityHasher:  Sha256Hasher{},
 		cfg:              cfg,
 	}
 
@@ -157,6 +173,18 @@ func (f HashedFS) GetHashedPath(path string) string {
 		return lookup
 	}
 	return path
+}
+
+// GetHash will get the Sha256 integrity hash for the specified path.
+//
+// Will only find files matched by the [Config.AllowedExtensions] list.
+//
+// If the hashed path is not found it will return a blank string.
+func (f HashedFS) GetHash(path string) string {
+	if lookup, ok := f.integrityLookup[path]; ok {
+		return lookup
+	}
+	return ""
 }
 
 // See [embed.FS.Open]

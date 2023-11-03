@@ -32,7 +32,7 @@ func Example_configured() {
 		// Extensions not in this list will not be given content-hashes
 		AllowedExtensions: []string{"css", "txt"},
 		// Mechanism to control the hash
-		Hasher: Crc32Hasher,
+		Hasher: Crc32Hasher{},
 		// Mechanism to control the naming of the content-hashed files
 		Renamer: FullNameRenamer,
 	})

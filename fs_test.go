@@ -16,7 +16,7 @@ var testHashEmbedOptions *HashedFS
 func init() {
 	testHashEmbed, _ = Generate(testEmbed)
 	testHashEmbedOptions, _ = Generate(testEmbed, Config{
-		Hasher:  Crc32Hasher,
+		Hasher:  Crc32Hasher{},
 		Renamer: FullNameRenamer,
 	})
 }
@@ -33,6 +33,21 @@ func TestGetHashedPath(t *testing.T) {
 		"testdata/test.txt",
 		testHashEmbedOptions.GetHashedPath("testdata/test.txt"),
 		"GetHashedPath path should remain unchanged when file not hashed",
+	)
+}
+
+func TestGetHash(t *testing.T) {
+	assert.Equal(
+		t,
+		"8d77f04c3be2abcd554f262130ba6c30f277318e66588b6a0d95f476c4ae7c48",
+		testHashEmbedOptions.GetHash("testdata/test.css"),
+		"GetHash should be calculated correctly",
+	)
+	assert.Equal(
+		t,
+		"",
+		testHashEmbedOptions.GetHash("testdata/fake.txt"),
+		"GetHash be blank when file does not exist",
 	)
 }
 
