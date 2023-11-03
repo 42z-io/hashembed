@@ -29,7 +29,9 @@
 package hashembed
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/base64"
 	"io/fs"
 	"slices"
 )
@@ -40,8 +42,15 @@ type HashedFS struct {
 	actualPathLookup map[string]string // lookups for the hashed path => actual path
 	hashedPathLookup map[string]string // lookups for the actual path => hashed path
 	integrityLookup  map[string]string // lookups for the actual path => integrity hash (sha-256)
-	integrityHasher  FileHasher        // hasher used to generate the integrity hash
 	cfg              Config            // configuration options for the hashed embed
+}
+
+// Get the integrity (subresource integrity) for a file as base64.
+func (f HashedFS) getIntegrityBase64(data []byte) string {
+	hash := sha256.New()
+	hash.Write(data)
+	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
+
 }
 
 // Initialize a file by generating a hash, renaming (aliasing), and adding it to the lookup.
@@ -56,20 +65,9 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 		return err
 	}
 
-	hash, err := f.cfg.Hasher.Hash(data)
+	hash, err := f.cfg.Hasher(data)
 	if err != nil {
 		return err
-	}
-
-	var sha256 string
-	if f.cfg.Hasher.Algorithm() == "sha256" {
-		sha256 = hash
-	} else {
-		integrityHash, err := f.integrityHasher.Hash(data)
-		if err != nil {
-			return err
-		}
-		sha256 = integrityHash
 	}
 
 	hashedPath := f.cfg.Renamer(file, hash)
@@ -80,7 +78,7 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 	fullPath := file.FullPath()
 	f.actualPathLookup[hashedPath] = fullPath
 	f.hashedPathLookup[fullPath] = hashedPath
-	f.integrityLookup[fullPath] = sha256
+	f.integrityLookup[fullPath] = f.getIntegrityBase64(data)
 	return nil
 }
 
@@ -147,7 +145,6 @@ func Generate(fs embed.FS, cfgs ...Config) (*HashedFS, error) {
 		actualPathLookup: make(map[string]string),
 		hashedPathLookup: make(map[string]string),
 		integrityLookup:  make(map[string]string),
-		integrityHasher:  Sha256Hasher{},
 		cfg:              cfg,
 	}
 
@@ -175,12 +172,12 @@ func (f HashedFS) GetHashedPath(path string) string {
 	return path
 }
 
-// GetHash will get the Sha256 integrity hash for the specified path.
+// GetIntegrity will get the SHA-256 integrity hash (base64 encoded) for the specified path.
 //
 // Will only find files matched by the [Config.AllowedExtensions] list.
 //
 // If the hashed path is not found it will return a blank string.
-func (f HashedFS) GetHash(path string) string {
+func (f HashedFS) GetIntegrity(path string) string {
 	if lookup, ok := f.integrityLookup[path]; ok {
 		return lookup
 	}
