@@ -50,7 +50,6 @@ func (f HashedFS) getIntegrityBase64(data []byte) string {
 	hash := sha256.New()
 	hash.Write(data)
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
-
 }
 
 // Initialize a file by generating a hash, renaming (aliasing), and adding it to the lookup.
