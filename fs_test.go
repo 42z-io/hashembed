@@ -2,10 +2,53 @@ package hashembed
 
 import (
 	"embed"
+	"errors"
+	"io/fs"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// failFS is an fs.FS whose Open always returns an error.
+type failFS struct{}
+
+func (f failFS) Open(name string) (fs.File, error) {
+	return nil, errors.New("open error")
+}
+
+// readFileErrFS wraps a MapFS but returns an error from ReadFile.
+type readFileErrFS struct {
+	inner fstest.MapFS
+}
+
+func (f readFileErrFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f readFileErrFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return f.inner.ReadDir(name)
+}
+
+func (f readFileErrFS) ReadFile(name string) ([]byte, error) {
+	return nil, errors.New("read file error")
+}
+
+// subdirFailFS wraps a MapFS but returns an error from ReadDir for any path other than ".".
+type subdirFailFS struct {
+	inner fstest.MapFS
+}
+
+func (f subdirFailFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f subdirFailFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == "." {
+		return f.inner.ReadDir(".")
+	}
+	return nil, errors.New("subdir read error")
+}
 
 //go:embed testdata/*
 var testEmbed embed.FS
@@ -155,6 +198,39 @@ func TestOpenFile(t *testing.T) {
 		stat.Name(),
 		"text.txt should be the name of the opened file",
 	)
+}
+
+func TestGenerateRootReadDirError(t *testing.T) {
+	_, err := Generate(failFS{})
+	assert.NotNil(t, err, "Generate should return an error when the root ReadDir fails")
+}
+
+func TestGenerateSubdirReadDirError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(subdirFailFS{inner: inner})
+	assert.NotNil(t, err, "Generate should return an error when a subdirectory ReadDir fails")
+}
+
+func TestGenerateReadFileError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(readFileErrFS{inner: inner})
+	assert.NotNil(t, err, "Generate should return an error when ReadFile fails")
+}
+
+func TestGenerateHasherError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(inner, Config{
+		Hasher: func(data []byte) (string, error) {
+			return "", errors.New("hash error")
+		},
+	})
+	assert.NotNil(t, err, "Generate should return an error when the Hasher fails")
 }
 
 func BenchmarkGenerate(b *testing.B) {
