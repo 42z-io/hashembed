@@ -50,6 +50,23 @@ func (f subdirFailFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return nil, errors.New("subdir read error")
 }
 
+// nestedSubdirFailFS wraps a MapFS but returns an error from ReadDir for a specific path.
+type nestedSubdirFailFS struct {
+	inner      fstest.MapFS
+	failedPath string
+}
+
+func (f nestedSubdirFailFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f nestedSubdirFailFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == f.failedPath {
+		return nil, errors.New("nested subdir read error")
+	}
+	return f.inner.ReadDir(name)
+}
+
 //go:embed testdata/*
 var testEmbed embed.FS
 
@@ -231,6 +248,36 @@ func TestGenerateHasherError(t *testing.T) {
 		},
 	})
 	assert.NotNil(t, err, "Generate should return an error when the Hasher fails")
+}
+
+func TestGenerateNilHasher(t *testing.T) {
+	hfs, err := Generate(testEmbed, Config{Renamer: FullNameRenamer})
+	assert.Nil(t, err, "Generate should not error when Hasher is nil (defaults to Sha256Hasher)")
+	assert.NotNil(t, hfs)
+}
+
+func TestInitializePathRecursiveError(t *testing.T) {
+	inner := fstest.MapFS{
+		"folder/subfolder/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(nestedSubdirFailFS{inner: inner, failedPath: "folder/subfolder"})
+	assert.NotNil(t, err, "Generate should return an error when a nested subdirectory ReadDir fails")
+}
+
+func TestPathedDirEntry(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+
+	rootEntries, err := fs.ReadDir(inner, ".")
+	assert.Nil(t, err)
+	dirEntry := NewPathedDirEntry(rootEntries[0], "")
+
+	assert.True(t, dirEntry.IsDir(), "PathedDirEntry.IsDir should return true for a directory")
+	assert.NotEqual(t, fs.FileMode(0), dirEntry.Type()&fs.ModeDir, "PathedDirEntry.Type should include ModeDir for a directory")
+	info, err := dirEntry.Info()
+	assert.Nil(t, err, "PathedDirEntry.Info should not error")
+	assert.Equal(t, "subdir", info.Name(), "PathedDirEntry.Info should return correct name")
 }
 
 func BenchmarkGenerate(b *testing.B) {

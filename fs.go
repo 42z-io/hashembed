@@ -69,10 +69,6 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 	}
 
 	hashedPath := f.cfg.Renamer(file, hash)
-	if err != nil {
-		return err
-	}
-
 	fullPath := file.FullPath()
 	f.actualPathLookup[hashedPath] = fullPath
 	f.hashedPathLookup[fullPath] = hashedPath
