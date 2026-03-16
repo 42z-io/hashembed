@@ -30,15 +30,14 @@ package hashembed
 
 import (
 	"crypto/sha256"
-	"embed"
 	"encoding/base64"
 	"io/fs"
 	"slices"
 )
 
-// HashedFS is an [embed.FS] with support for reading files with virtual content hashes embedded in the file name.
+// HashedFS is an [fs.FS] with support for reading files with virtual content hashes embedded in the file name.
 type HashedFS struct {
-	fs               embed.FS          // underlying embed.FS
+	fs               fs.FS             // underlying fs.FS
 	actualPathLookup map[string]string // lookups for the hashed path => actual path
 	hashedPathLookup map[string]string // lookups for the actual path => hashed path
 	integrityLookup  map[string]string // lookups for the actual path => integrity hash (sha-256)
@@ -59,7 +58,7 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 		return nil
 	}
 
-	data, err := f.fs.ReadFile(file.FullPath())
+	data, err := fs.ReadFile(f.fs, file.FullPath())
 	if err != nil {
 		return err
 	}
@@ -70,10 +69,6 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 	}
 
 	hashedPath := f.cfg.Renamer(file, hash)
-	if err != nil {
-		return err
-	}
-
 	fullPath := file.FullPath()
 	f.actualPathLookup[hashedPath] = fullPath
 	f.hashedPathLookup[fullPath] = hashedPath
@@ -84,7 +79,7 @@ func (f HashedFS) initializeFile(file PathedDirEntry) error {
 // Initialize a path (could be file or directory) within the embed.FS.
 func (f HashedFS) initializePath(root PathedDirEntry) error {
 	rootPath := root.FullPath()
-	entries, err := f.fs.ReadDir(rootPath)
+	entries, err := fs.ReadDir(f.fs, rootPath)
 	if err != nil {
 		return err
 	}
@@ -106,7 +101,7 @@ func (f HashedFS) initializePath(root PathedDirEntry) error {
 
 // Initialize the [HashedFS] by iterating over the files in the embed.FS.
 func (f HashedFS) initialize() error {
-	entries, err := f.fs.ReadDir(".")
+	entries, err := fs.ReadDir(f.fs, ".")
 	if err != nil {
 		return err
 	}
@@ -121,7 +116,7 @@ func (f HashedFS) initialize() error {
 }
 
 // Generate will create a new instance of [HashedFS] using [Config] (if provided) or [ConfigDefault] if not provided.
-func Generate(fs embed.FS, cfgs ...Config) (*HashedFS, error) {
+func Generate(fsys fs.FS, cfgs ...Config) (*HashedFS, error) {
 	cfg := ConfigDefault
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
@@ -140,14 +135,16 @@ func Generate(fs embed.FS, cfgs ...Config) (*HashedFS, error) {
 	}
 
 	hashedEmbed := &HashedFS{
-		fs:               fs,
+		fs:               fsys,
 		actualPathLookup: make(map[string]string),
 		hashedPathLookup: make(map[string]string),
 		integrityLookup:  make(map[string]string),
 		cfg:              cfg,
 	}
 
-	hashedEmbed.initialize()
+	if err := hashedEmbed.initialize(); err != nil {
+		return nil, err
+	}
 	return hashedEmbed, nil
 }
 
@@ -190,16 +187,16 @@ func (f HashedFS) Open(name string) (fs.File, error) {
 	return f.fs.Open(f.GetActualPath(name))
 }
 
-// See [embed.FS.ReadDir]
+// See [fs.ReadDir]
 //
-// Note: This will only return files that actually exist in the [embed.FS] - hashed files are "virtual"
+// Note: This will only return files that actually exist in the underlying [fs.FS] - hashed files are "virtual"
 func (f HashedFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	return f.fs.ReadDir(name)
+	return fs.ReadDir(f.fs, name)
 }
 
-// See [embed.FS]
+// See [fs.ReadFile]
 //
 // This will call [HashedFS.GetActualPath] on the file to get the correct name.
 func (f HashedFS) ReadFile(name string) ([]byte, error) {
-	return f.fs.ReadFile(f.GetActualPath(name))
+	return fs.ReadFile(f.fs, f.GetActualPath(name))
 }

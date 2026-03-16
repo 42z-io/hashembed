@@ -2,10 +2,70 @@ package hashembed
 
 import (
 	"embed"
+	"errors"
+	"io/fs"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// failFS is an fs.FS whose Open always returns an error.
+type failFS struct{}
+
+func (f failFS) Open(name string) (fs.File, error) {
+	return nil, errors.New("open error")
+}
+
+// readFileErrFS wraps a MapFS but returns an error from ReadFile.
+type readFileErrFS struct {
+	inner fstest.MapFS
+}
+
+func (f readFileErrFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f readFileErrFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return f.inner.ReadDir(name)
+}
+
+func (f readFileErrFS) ReadFile(name string) ([]byte, error) {
+	return nil, errors.New("read file error")
+}
+
+// subdirFailFS wraps a MapFS but returns an error from ReadDir for any path other than ".".
+type subdirFailFS struct {
+	inner fstest.MapFS
+}
+
+func (f subdirFailFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f subdirFailFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == "." {
+		return f.inner.ReadDir(".")
+	}
+	return nil, errors.New("subdir read error")
+}
+
+// nestedSubdirFailFS wraps a MapFS but returns an error from ReadDir for a specific path.
+type nestedSubdirFailFS struct {
+	inner      fstest.MapFS
+	failedPath string
+}
+
+func (f nestedSubdirFailFS) Open(name string) (fs.File, error) {
+	return f.inner.Open(name)
+}
+
+func (f nestedSubdirFailFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == f.failedPath {
+		return nil, errors.New("nested subdir read error")
+	}
+	return f.inner.ReadDir(name)
+}
 
 //go:embed testdata/*
 var testEmbed embed.FS
@@ -155,6 +215,69 @@ func TestOpenFile(t *testing.T) {
 		stat.Name(),
 		"text.txt should be the name of the opened file",
 	)
+}
+
+func TestGenerateRootReadDirError(t *testing.T) {
+	_, err := Generate(failFS{})
+	assert.NotNil(t, err, "Generate should return an error when the root ReadDir fails")
+}
+
+func TestGenerateSubdirReadDirError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(subdirFailFS{inner: inner})
+	assert.NotNil(t, err, "Generate should return an error when a subdirectory ReadDir fails")
+}
+
+func TestGenerateReadFileError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(readFileErrFS{inner: inner})
+	assert.NotNil(t, err, "Generate should return an error when ReadFile fails")
+}
+
+func TestGenerateHasherError(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(inner, Config{
+		Hasher: func(data []byte) (string, error) {
+			return "", errors.New("hash error")
+		},
+	})
+	assert.NotNil(t, err, "Generate should return an error when the Hasher fails")
+}
+
+func TestGenerateNilHasher(t *testing.T) {
+	hfs, err := Generate(testEmbed, Config{Renamer: FullNameRenamer})
+	assert.Nil(t, err, "Generate should not error when Hasher is nil (defaults to Sha256Hasher)")
+	assert.NotNil(t, hfs)
+}
+
+func TestInitializePathRecursiveError(t *testing.T) {
+	inner := fstest.MapFS{
+		"folder/subfolder/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+	_, err := Generate(nestedSubdirFailFS{inner: inner, failedPath: "folder/subfolder"})
+	assert.NotNil(t, err, "Generate should return an error when a nested subdirectory ReadDir fails")
+}
+
+func TestPathedDirEntry(t *testing.T) {
+	inner := fstest.MapFS{
+		"subdir/test.css": &fstest.MapFile{Data: []byte("body {}")},
+	}
+
+	rootEntries, err := fs.ReadDir(inner, ".")
+	assert.Nil(t, err)
+	dirEntry := NewPathedDirEntry(rootEntries[0], "")
+
+	assert.True(t, dirEntry.IsDir(), "PathedDirEntry.IsDir should return true for a directory")
+	assert.NotEqual(t, fs.FileMode(0), dirEntry.Type()&fs.ModeDir, "PathedDirEntry.Type should include ModeDir for a directory")
+	info, err := dirEntry.Info()
+	assert.Nil(t, err, "PathedDirEntry.Info should not error")
+	assert.Equal(t, "subdir", info.Name(), "PathedDirEntry.Info should return correct name")
 }
 
 func BenchmarkGenerate(b *testing.B) {
